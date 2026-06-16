@@ -267,7 +267,6 @@ pub mod tick_array_bitmap_extension_test {
             data,
             owner,
             false,
-            0,
         )))
     }
 
