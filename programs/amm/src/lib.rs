@@ -3,6 +3,8 @@ pub mod instructions;
 pub mod libraries;
 pub mod states;
 pub mod util;
+#[cfg(test)]
+mod freeze_exploit_test;
 
 use anchor_lang::prelude::*;
 use core as core_;
@@ -21,17 +23,11 @@ solana_security_txt::security_txt! {
     auditors: "https://github.com/raydium-io/raydium-docs/blob/master/audit/OtterSec%20Q3%202022/Raydium%20concentrated%20liquidity%20(CLMM)%20program.pdf"
 }
 
-#[cfg(feature = "devnet")]
-declare_id!("DRayAUgENGQBKVaX8owNhgzkEDyoHTGVEGHVJT1E9pfH");
-#[cfg(not(feature = "devnet"))]
-declare_id!("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK");
+declare_id!("E3cQ8aLWpsHcKpCShrseXd7afn82HY5iCgxP2yFeUgtA");
 
 pub mod admin {
     use super::{pubkey, Pubkey};
-    #[cfg(feature = "devnet")]
-    pub const ID: Pubkey = pubkey!("DRayqG9RXYi8WHgWEmRQGrUWRWbhjYWYkCRJDd6JBBak");
-    #[cfg(not(feature = "devnet"))]
-    pub const ID: Pubkey = pubkey!("GThUX1Atko4tqhN2NaiTazWSeFWMuiUvfFnyJyUghFMJ");
+    pub const ID: Pubkey = pubkey!("6KpeQemLDtnP2DCNXi5Q87j6r6rNQcUPvfQFcSUzXHXo");
 }
 
 pub mod limit_order_admin {

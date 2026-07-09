@@ -28,6 +28,10 @@ url = "https://api.mainnet-beta.solana.com"
 [[test.validator.clone]]
 address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 
+# Token-2022 program for freeze authority test
+[[test.validator.clone]]
+address = "TokenzQdBNbLqP5VEhdkk2LHmo4grbH4iL3T6GUpR4gD"
+
 # amm config address, index 0
 [[test.validator.clone]]
 address = "4BLNHtVe942GSs4teSZqGX24xwKNkqU7bGgNn3iUiUpw"
