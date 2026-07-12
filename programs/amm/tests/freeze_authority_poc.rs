@@ -22,7 +22,7 @@ fn freeze_authority_locks_vault() {
 
     // Load the real compiled program - built by the workflow before this runs
 
-    let so_path = "target/deploy/raydium_amm_v3.so";
+    let so_path = "target/deploy/raydium_clmm.so";
 
     let program_bytes = std::fs::read(so_path)
 
