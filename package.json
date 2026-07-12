@@ -20,5 +20,5 @@
         "ts-node": "^10.9.2",
         "typescript": "^4.3.5",
         "anchor-bankrun": "^0.3.0"
-    },
+    }
 }
