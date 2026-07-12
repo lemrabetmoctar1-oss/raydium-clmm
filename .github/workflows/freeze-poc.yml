@@ -31,7 +31,6 @@ jobs:
         run: cat target/idl/*.json
 
       - name: Extract specific instruction IDL details
-        working-directory: raydium-clmm
         run: |
           cat target/idl/*.json | python3 -c "
           import json, sys
