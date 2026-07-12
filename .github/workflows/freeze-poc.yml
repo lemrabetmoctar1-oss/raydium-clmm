@@ -6,6 +6,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libudev-dev pkg-config
 
@@ -29,5 +30,13 @@ jobs:
       - name: Show generated IDL
         run: cat target/idl/*.json
 
-      - name: Run test
-        run: cargo test --package raydium-clmm --test freeze_authority_poc -- --nocapture
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node dependencies
+        run: yarn install || npm install
+
+      - name: Run TypeScript PoC test
+        run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/freeze_authority.test.ts
