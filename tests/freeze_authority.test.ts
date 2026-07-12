@@ -79,15 +79,21 @@ describe("freeze authority poc", () => {
       program.programId
     );
 
-    await program.methods
+    const createAmmConfigIx = await program.methods
       .createAmmConfig(0, 60, 500, 10000, 25000)
       .accounts({
         owner: admin.publicKey,
         ammConfig: ammConfig,
         systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
-      .rpc();
+      .instruction();
+
+    const ammConfigTx = new Transaction().add(createAmmConfigIx);
+    const [bh3] = await client.getLatestBlockhash();
+    ammConfigTx.recentBlockhash = bh3;
+    ammConfigTx.feePayer = admin.publicKey;
+    ammConfigTx.sign(admin);
+    await client.processTransaction(ammConfigTx);
 
     console.log("STEP 2 PASS: amm_config created at", ammConfig.toBase58());
   });
