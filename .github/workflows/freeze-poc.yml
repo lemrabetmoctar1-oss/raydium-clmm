@@ -30,4 +30,4 @@ jobs:
         run: cat target/idl/*.json
 
       - name: Run test
-        run: cargo test --package raydium-amm-v3 --test freeze_authority_poc -- --nocapture
+        run: cargo test --package raydium-clmm --test freeze_authority_poc -- --nocapture
