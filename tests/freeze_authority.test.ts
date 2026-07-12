@@ -207,7 +207,7 @@ describe("freeze authority poc", () => {
     const positionNftMint = Keypair.generate();
     const tickLower = -600;
     const tickUpper = 600;
-    const tickArrayLowerStart = -600;
+    const tickArrayLowerStart = -3600;
     const tickArrayUpperStart = 0;
 
     const [protocolPosition] = PublicKey.findProgramAddressSync(
