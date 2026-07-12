@@ -1,0 +1,11 @@
+name: Freeze Authority POC
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustc --edition 2021 --test tests/freeze_authority_poc.rs -o /tmp/poc && /tmp/poc --nocapture
