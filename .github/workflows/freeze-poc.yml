@@ -16,7 +16,7 @@ jobs:
           avm install 0.32.1 && avm use 0.32.1
       - name: Build program (generates IDL too)
         run: anchor build
-      - name: Show generated IDL (so we can see real account layout)
+      - name: Show generated IDL
         run: cat target/idl/*.json
       - name: Run test
         run: cargo test --test freeze_authority_poc -- --nocapture
