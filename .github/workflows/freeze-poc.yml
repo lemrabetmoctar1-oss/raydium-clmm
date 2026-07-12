@@ -13,7 +13,8 @@ jobs:
       - name: Install Anchor
         run: |
           cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-          avm install 0.32.1 && avm use 0.32.1
+          avm install 0.32.1 --force
+          avm use 0.32.1
       - name: Build program (generates IDL too)
         run: anchor build
       - name: Show generated IDL
