@@ -1,0 +1,45 @@
+name: Freeze Authority POC Test
+
+on: [push, workflow_dispatch]
+
+jobs:
+  test-poc:
+    runs-on: ubuntu-24.04  # Required for GLIBC 2.39+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain stable
+        with:
+          components: rustfmt, clippy
+      - uses: KevinTang/rhai-setup-action@v1
+        with:
+          rust-version: stable
+      
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v2.0.0/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      
+      - name: Install spl-token CLI with Token-2022 support  
+        run: |
+          cargo install spl-token-cli --features token-2022
+      
+      - name: Build CLMM program
+        run: anchor build
+      
+      - name: Run POC test
+        run: |
+          # Start validator with both programs
+          solana-test-validator \
+            --clone-upgradeable-program CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK \
+            --clone-upgradeable-program TokenzQdBNbLqP5VEhdkk2LHmo4grbH4iL3T6GUpR4gD \
+            --reset &
+          sleep 20
+          
+          # Run the actual test
+          rustc --edition 2021 --test tests/freeze_authority_poc.rs -o /tmp/poc
+          /tmp/poc --nocapture
+      
+      - name: Run TypeScript test
+        run: |
+          yarn install
+          yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/freeze_authority_poc.test.ts
