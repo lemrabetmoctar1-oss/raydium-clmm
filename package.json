@@ -7,6 +7,8 @@
         "@coral-xyz/anchor": "0.32.1",
         "@raydium-io/raydium-sdk-v2": "0.2.32-alpha",
         "@solana/spl-token": "^0.4.14"
+        "solana-bankrun": "^0.4.0",
+        "@coral-xyz/anchor": "^0.32.1"
     },
     "devDependencies": {
         "@types/bn.js": "^5.1.0",
