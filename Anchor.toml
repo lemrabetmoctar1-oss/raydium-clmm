@@ -4,7 +4,7 @@
 seeds = false
 
 [programs.localnet]
-raydium_clmm = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+raydium_clmm = "E3cQ8aLWpsHcKpCShrseXd7afn82HY5iCgxP2yFeUgtA"
 
 [registry]
 url = "https://github.com/raydium-io/raydium-amm-v3"
