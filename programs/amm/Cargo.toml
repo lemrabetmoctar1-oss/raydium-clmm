@@ -33,6 +33,10 @@ solana-security-txt = "1.1.1"
 quickcheck = "0.9"
 proptest = "1.0"
 rand = "0.8.5"
+litesvm = "0.3"
+solana-sdk = "2.1"
+spl-token-2022 = "4"
+spl-associated-token-account = "4"
 
 [profile.release]
 lto = "fat"
