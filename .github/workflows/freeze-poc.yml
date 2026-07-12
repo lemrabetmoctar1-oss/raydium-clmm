@@ -6,16 +6,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Solana
+
+      - name: Install Solana CLI
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-      - name: Install Anchor
+
+      - name: Install Anchor CLI (built from source, avoids GLIBC issues)
+        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.32.1 anchor-cli --locked --force
+
+      - name: Verify tool versions
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor --tag v0.32.1 anchor-cli --locked --force
+          anchor --version
+          solana --version
+          rustc --version
+
       - name: Build program (generates IDL too)
         run: anchor build
+
       - name: Show generated IDL
         run: cat target/idl/*.json
+
       - name: Run test
         run: cargo test --test freeze_authority_poc -- --nocapture
