@@ -27,7 +27,7 @@ declare_id!("E3cQ8aLWpsHcKpCShrseXd7afn82HY5iCgxP2yFeUgtA");
 
 pub mod admin {
     use super::{pubkey, Pubkey};
-    pub const ID: Pubkey = pubkey!("7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDpvcMwJeK");
+    pub const ID: Pubkey = pubkey!("3Qi9C22WhKcjctwohk11BndMs9NGmHxtCXyzw75gqPqV");
 }
 
 pub mod limit_order_admin {
