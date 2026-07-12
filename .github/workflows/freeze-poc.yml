@@ -39,4 +39,4 @@ jobs:
         run: yarn install || npm install
 
       - name: Run TypeScript PoC test
-        run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/freeze_authority.test.ts
+        run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/print_admin.test.ts
