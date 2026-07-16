@@ -51,3 +51,6 @@ jobs:
 
       - name: Run TypeScript PoC test
         run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/freeze_authority.test.ts
+
+      - name: Show generated IDL
+        run: cat target/idl/*.json
