@@ -54,3 +54,12 @@ jobs:
 
       - name: Show generated IDL
         run: cat target/idl/*.json
+
+      - name: List all instruction names
+        run: |
+          cat target/idl/*.json | python3 -c "
+          import json, sys
+          idl = json.load(sys.stdin)
+          for ix in idl['instructions']:
+              print(ix['name'])
+          "
