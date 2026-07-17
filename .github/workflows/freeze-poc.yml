@@ -49,14 +49,7 @@ jobs:
       - name: Run TypeScript PoC test
         run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/freeze_authority.test.ts
 
-      - name: Verify PoC evidence is present in output
-        run: |
-          echo "This step is a reminder to visually confirm the following markers appear in the"
-          echo "'Run TypeScript PoC test' log above before using this run as report evidence:"
-          echo "  [BALANCE CHECK]  (x2 minimum - after deposit, after freeze)"
-          echo "  [IMPACT]"
-          echo "  [PERMANENCE CHECK]"
-          echo "  STEP 7 CONFIRMED"
+      
 
       - name: List all instruction names
         run: |
