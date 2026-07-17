@@ -27,16 +27,13 @@ jobs:
       - name: Build program (generates IDL too)
         run: anchor build
 
-      - name: Show generated IDL
-        run: cat target/idl/*.json
-
       - name: Extract specific instruction IDL details
         run: |
           cat target/idl/*.json | python3 -c "
           import json, sys
           idl = json.load(sys.stdin)
           for ix in idl['instructions']:
-              if ix['name'] in ['open_position_with_token22_nft', 'open_position_v2', 'increase_liquidity_v2']:
+              if ix['name'] in ['open_position_with_token22_nft', 'open_position_v2', 'increase_liquidity_v2', 'decrease_liquidity_v2', 'close_position']:
                   print('=== ' + ix['name'] + ' ===')
                   print(json.dumps(ix, indent=2))
           "
@@ -52,8 +49,14 @@ jobs:
       - name: Run TypeScript PoC test
         run: yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/freeze_authority.test.ts
 
-      - name: Show generated IDL
-        run: cat target/idl/*.json
+      - name: Verify PoC evidence is present in output
+        run: |
+          echo "This step is a reminder to visually confirm the following markers appear in the"
+          echo "'Run TypeScript PoC test' log above before using this run as report evidence:"
+          echo "  [BALANCE CHECK]  (x2 minimum - after deposit, after freeze)"
+          echo "  [IMPACT]"
+          echo "  [PERMANENCE CHECK]"
+          echo "  STEP 7 CONFIRMED"
 
       - name: List all instruction names
         run: |
